@@ -57,14 +57,82 @@ const Palette = {
 // AudioManager — placeholder hooks only. No audio implemented yet.
 // ---------------------------------------------------------------------------
 class AudioManager {
-    constructor() { this.muted = false; }
-    playRainLoop() { /* placeholder: start looping rain ambience */ }
+    constructor() {
+        this.muted = false;
+
+        // Rain ambient — always looping in background
+        this.rainAudio = new Audio('audio/rain.mp3');
+        this.rainAudio.loop = true;
+        this.rainAudio.volume = 0.2;
+
+        // Under-umbrella ambience — plays when player is dry
+        this.umbrellaAudio = new Audio('audio/under_umberla.mp3');
+        this.umbrellaAudio.loop = true;
+        this.umbrellaAudio.volume = 0;           // start silent, fade in
+        this.umbrellaMaxVol = 0.15;              // lower max volume
+        this._umbrellaTargetVol = 0;             // desired volume
+        this._umbrellaPlaying = false;
+    }
+
+    playRainLoop() {
+        if (!this.muted) {
+            this.rainAudio.play().catch(e => console.log('Rain audio failed:', e));
+        }
+    }
+
+    /** Call each frame (dt in seconds) to smoothly cross-fade umbrella track. */
+    updateUmbrellaAudio(isDry, dt) {
+        if (this.muted) return;
+
+        this._umbrellaTargetVol = isDry ? this.umbrellaMaxVol : 0;
+
+        // Start playback when we first need it
+        if (isDry && !this._umbrellaPlaying) {
+            this.umbrellaAudio.currentTime = 0;
+            this.umbrellaAudio.play().catch(e => console.log('Umbrella audio failed:', e));
+            this._umbrellaPlaying = true;
+        }
+
+        // Smooth fade (speed: full range in ~0.8 s)
+        const fadeSpeed = 1.25;
+        const diff = this._umbrellaTargetVol - this.umbrellaAudio.volume;
+        if (Math.abs(diff) < 0.005) {
+            this.umbrellaAudio.volume = this._umbrellaTargetVol;
+        } else {
+            this.umbrellaAudio.volume = Math.max(0, Math.min(this.umbrellaMaxVol,
+                this.umbrellaAudio.volume + Math.sign(diff) * fadeSpeed * dt
+            ));
+        }
+
+        // Pause when fully silent to save resources
+        if (this.umbrellaAudio.volume === 0 && this._umbrellaPlaying) {
+            this.umbrellaAudio.pause();
+            this._umbrellaPlaying = false;
+        }
+    }
+
     playThunder() { /* placeholder: one-shot thunder rumble */ }
     playFootstep() { /* placeholder: single footstep tick */ }
     playWind() { /* placeholder: wind gust swell */ }
     playSplash() { /* placeholder: car puddle splash */ }
-    stopAllAudio() { /* placeholder: halt every voice */ }
-    setMuted(m) { this.muted = m; }
+
+    stopAllAudio() {
+        this.rainAudio.pause();
+        this.umbrellaAudio.pause();
+        this._umbrellaPlaying = false;
+    }
+
+    setMuted(m) {
+        this.muted = m;
+        if (m) {
+            this.rainAudio.pause();
+            this.umbrellaAudio.pause();
+            this._umbrellaPlaying = false;
+        } else {
+            this.playRainLoop();
+            // umbrella track will resume naturally on next updateUmbrellaAudio call
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1076,7 +1144,10 @@ class UIManager {
         this.pauseBtn.addEventListener('click', () => this.setPaused(true));
         this.resumeBtn.addEventListener('click', () => { this.setPaused(false); onResume(); });
         this.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
-        this.muteBtn.addEventListener('click', () => this.toggleMute());
+        this.muteBtn.addEventListener('click', () => {
+            const isMuted = this.toggleMute();
+            if (this.onMuteToggle) this.onMuteToggle(isMuted);
+        });
     }
 
     toggleFullscreen() {
@@ -1128,6 +1199,7 @@ class Game {
         this.collisions = new CollisionManager();
         this.renderer = new Renderer(this.ctx);
         this.ui = new UIManager(() => this._resumeClock(), () => { });
+        this.ui.onMuteToggle = (muted) => this.audio.setMuted(muted);
 
         this.baselineFrac = 0.6;
         this.elapsed = 0;
@@ -1203,7 +1275,13 @@ class Game {
 
         const px = this.renderer.worldToScreenX(this.camera, this.player.worldX);
         const py = this.renderer.roadScreenY(this.camera, this.player.worldX, this.h, this.baselineFrac) + 30;
+        const previousWetness = this.player.wetness;
         this.collisions.resolve(this.player, this.rain, px, py);
+
+        // Drive under-umbrella music: play when player is sheltered (no rain hits this frame, so dryness increases)
+        // Fade out when getting wet (rain hits increase wetness).
+        const isSheltered = this.player.wetness <= previousWetness;
+        this.audio.updateUmbrellaAudio(isSheltered, dt);
 
         this._visible = visible;
         this._playerScreen = { x: px, y: py };
