@@ -1,0 +1,46 @@
+[gd_scene format=3 uid="uid://cywy48kulae5y"]
+
+[ext_resource type="Texture2D" uid="uid://b5gp3228ursgu" path="res://asserts/images/character-new.png" id="1_4m5hh"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_0upji"]
+atlas = ExtResource("1_4m5hh")
+region = Rect2(356, 0, 356, 293)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_cvrci"]
+atlas = ExtResource("1_4m5hh")
+region = Rect2(712, 0, 356, 293)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_f5igj"]
+atlas = ExtResource("1_4m5hh")
+region = Rect2(1068, 0, 356, 293)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8whgg"]
+atlas = ExtResource("1_4m5hh")
+region = Rect2(1424, 0, 356, 293)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_0oqto"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_0upji")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_cvrci")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_f5igj")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8whgg")
+}],
+"loop": true,
+"name": &"walk",
+"speed": 5.0
+}]
+
+[node name="player-node" type="Node2D" unique_id=543665828]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1537691753]
+z_index = 10
+sprite_frames = SubResource("SpriteFrames_0oqto")
+animation = &"walk"

@@ -1,0 +1,17 @@
+[gd_scene load_steps=4 format=3 uid="uid://dkwct3awsuqss"]
+
+[ext_resource type="Script" path="res://scripts/rain_game.gd" id="1_rain_game"]
+[ext_resource type="AudioStream" path="res://asserts/audio/rain.mp3" id="2_rain"]
+[ext_resource type="AudioStream" path="res://asserts/audio/under_umberla.mp3" id="3_umbrella"]
+
+[node name="MainWorld" type="Node2D"]
+script = ExtResource("1_rain_game")
+
+[node name="RainAudio" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2_rain")
+volume_db = -4.0
+autoplay = true
+
+[node name="UmbrellaAudio" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("3_umbrella")
+volume_db = -12.0
