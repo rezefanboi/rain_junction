@@ -56,15 +56,301 @@ const Palette = {
 // ---------------------------------------------------------------------------
 // AudioManager — placeholder hooks only. No audio implemented yet.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// AudioConfig & AudioManager — production level Audio System
+// Supports both procedural Web Audio API synthesis & loading static files
+// ---------------------------------------------------------------------------
+const AudioConfig = {
+    useSynth: true, // Default to true. Change to false to load static files from the assets folder.
+    paths: {
+        rainLoop: 'assets/audio/ambient/rain_loop.ogg',
+        windLoop: 'assets/audio/ambient/wind_loop.ogg',
+        thunder: 'assets/audio/sfx/thunder_rumble.wav',
+        footstep: 'assets/audio/sfx/footstep_soft.wav',
+        windGust: 'assets/audio/ambient/wind_loop.ogg', // reuse or specify wind_gust
+        splash: 'assets/audio/sfx/splash_car.wav'
+    }
+};
+
 class AudioManager {
-    constructor() { this.muted = false; }
-    playRainLoop() { /* placeholder: start looping rain ambience */ }
-    playThunder() { /* placeholder: one-shot thunder rumble */ }
-    playFootstep() { /* placeholder: single footstep tick */ }
-    playWind() { /* placeholder: wind gust swell */ }
-    playSplash() { /* placeholder: car puddle splash */ }
-    stopAllAudio() { /* placeholder: halt every voice */ }
-    setMuted(m) { this.muted = m; }
+    constructor() {
+        this.muted = false;
+        this.ctx = null;
+        this.buffers = {};
+        
+        // Active audio sources & gains
+        this.masterGain = null;
+        this.rainGain = null;
+        this.windGain = null;
+        
+        this.rainSource = null;
+        this.windSource = null;
+        
+        this.windFilter = null;
+    }
+
+    async init() {
+        if (this.ctx) return;
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+
+        this.ctx = new AudioContextClass();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(this.muted ? 0 : 0.65, this.ctx.currentTime);
+        this.masterGain.connect(this.ctx.destination);
+
+        if (!AudioConfig.useSynth) {
+            try {
+                await this._preloadAssets();
+            } catch (e) {
+                console.warn("Failed to load static audio assets, falling back to Web Audio Synthesis.", e);
+                AudioConfig.useSynth = true;
+            }
+        }
+
+        this._startRainLoop();
+        this._startWindLoop();
+    }
+
+    async _preloadAssets() {
+        const promises = Object.entries(AudioConfig.paths).map(async ([key, url]) => {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            this.buffers[key] = await this.ctx.decodeAudioData(arrayBuffer);
+        });
+        await Promise.all(promises);
+    }
+
+    setMuted(m) {
+        this.muted = m;
+        if (!this.ctx) {
+            if (!m) this.init();
+            return;
+        }
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+        const targetGain = m ? 0 : 0.65;
+        this.masterGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.15);
+    }
+
+    _createNoiseBuffer(type = 'white') {
+        const bufferSize = 2 * this.ctx.sampleRate;
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        let lastOut = 0.0;
+        for (let i = 0; i < bufferSize; i++) {
+            const white = Math.random() * 2 - 1;
+            if (type === 'pink') {
+                // Pink noise filter approximation
+                output[i] = (lastOut + (0.12 * white)) / 1.1;
+                lastOut = output[i];
+            } else {
+                output[i] = white;
+            }
+        }
+        return noiseBuffer;
+    }
+
+    _startRainLoop() {
+        this.rainGain = this.ctx.createGain();
+        this.rainGain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+        this.rainGain.connect(this.masterGain);
+
+        if (AudioConfig.useSynth) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this._createNoiseBuffer('white');
+            source.loop = true;
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 1100;
+            filter.Q.value = 0.6;
+
+            source.connect(filter);
+            filter.connect(this.rainGain);
+            source.start();
+            this.rainSource = source;
+        } else if (this.buffers.rainLoop) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this.buffers.rainLoop;
+            source.loop = true;
+            source.connect(this.rainGain);
+            source.start();
+            this.rainSource = source;
+        }
+    }
+
+    _startWindLoop() {
+        this.windGain = this.ctx.createGain();
+        this.windGain.gain.setValueAtTime(0.06, this.ctx.currentTime);
+        this.windGain.connect(this.masterGain);
+
+        this.windFilter = this.ctx.createBiquadFilter();
+        this.windFilter.type = 'bandpass';
+        this.windFilter.frequency.value = 320;
+        this.windFilter.Q.value = 2.2;
+        this.windFilter.connect(this.windGain);
+
+        if (AudioConfig.useSynth) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this._createNoiseBuffer('pink');
+            source.loop = true;
+            source.connect(this.windFilter);
+            source.start();
+            this.windSource = source;
+        } else if (this.buffers.windLoop) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this.buffers.windLoop;
+            source.loop = true;
+            source.connect(this.windFilter);
+            source.start();
+            this.windSource = source;
+        }
+
+        this._modulateWind();
+    }
+
+    _modulateWind() {
+        if (!this.ctx || !this.windFilter) return;
+        const now = this.ctx.currentTime;
+        const freq = 180 + Math.random() * 260;
+        const Q = 1.2 + Math.random() * 1.8;
+        this.windFilter.frequency.setTargetAtTime(freq, now, 2.0);
+        this.windFilter.Q.setTargetAtTime(Q, now, 2.0);
+
+        setTimeout(() => this._modulateWind(), 2500 + Math.random() * 2000);
+    }
+
+    playThunder() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+
+        if (AudioConfig.useSynth) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this._createNoiseBuffer('pink');
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 65;
+
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.38, now);
+            gain.gain.exponentialRampToValueAtTime(0.005, now + 3.2);
+
+            source.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.masterGain);
+
+            source.start(now);
+            source.stop(now + 3.5);
+        } else if (this.buffers.thunder) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this.buffers.thunder;
+            
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.6, now);
+            gain.connect(this.masterGain);
+            
+            source.connect(gain);
+            source.start(now);
+        }
+    }
+
+    playFootstep() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+
+        if (AudioConfig.useSynth) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this._createNoiseBuffer('pink');
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 240;
+            filter.Q.value = 3.5;
+
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.08, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+            source.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.masterGain);
+
+            source.start(now);
+            source.stop(now + 0.1);
+        } else if (this.buffers.footstep) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this.buffers.footstep;
+            source.connect(this.masterGain);
+            source.start(now);
+        }
+    }
+
+    playWind() {
+        if (!this.ctx || !this.windGain) return;
+        const now = this.ctx.currentTime;
+        
+        // Swells the wind volume temporarily
+        this.windGain.gain.cancelScheduledValues(now);
+        this.windGain.gain.setValueAtTime(this.windGain.gain.value, now);
+        this.windGain.gain.linearRampToValueAtTime(0.18, now + 1.2);
+        this.windGain.gain.exponentialRampToValueAtTime(0.06, now + 3.5);
+    }
+
+    playSplash() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+
+        if (AudioConfig.useSynth) {
+            // Low-frequency body of the splash
+            const osc = this.ctx.createOscillator();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(140, now);
+            osc.frequency.exponentialRampToValueAtTime(35, now + 0.3);
+
+            // High-frequency splash hiss/spray
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = this._createNoiseBuffer('white');
+
+            const noiseFilter = this.ctx.createBiquadFilter();
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.setValueAtTime(750, now);
+            noiseFilter.frequency.exponentialRampToValueAtTime(180, now + 0.22);
+
+            const oscGain = this.ctx.createGain();
+            oscGain.gain.setValueAtTime(0.16, now);
+            oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+            const noiseGain = this.ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.12, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+            osc.connect(oscGain);
+            oscGain.connect(this.masterGain);
+
+            noise.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(this.masterGain);
+
+            osc.start(now);
+            osc.stop(now + 0.31);
+            noise.start(now);
+            noise.stop(now + 0.23);
+        } else if (this.buffers.splash) {
+            const source = this.ctx.createBufferSource();
+            source.buffer = this.buffers.splash;
+            source.connect(this.masterGain);
+            source.start(now);
+        }
+    }
+
+    stopAllAudio() {
+        if (this.masterGain) {
+            this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1060,7 +1346,7 @@ class Renderer {
 // UIManager — HUD text, pause overlay, settings, fullscreen (DOM-based)
 // ---------------------------------------------------------------------------
 class UIManager {
-    constructor(onResume, onRestart) {
+    constructor(onResume, onMuteToggle) {
         this.distanceEl = document.getElementById('hud-distance');
         this.drynessEl = document.getElementById('hud-dryness');
         this.timeEl = document.getElementById('hud-time');
@@ -1073,10 +1359,14 @@ class UIManager {
         this.hint = document.getElementById('keyboard-hint');
 
         this.paused = false;
+        this.muted = false; // Starts unmuted by default
         this.pauseBtn.addEventListener('click', () => this.setPaused(true));
         this.resumeBtn.addEventListener('click', () => { this.setPaused(false); onResume(); });
         this.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
-        this.muteBtn.addEventListener('click', () => this.toggleMute());
+        this.muteBtn.addEventListener('click', () => {
+            const isMuted = this.toggleMute();
+            if (onMuteToggle) onMuteToggle(isMuted);
+        });
     }
 
     toggleFullscreen() {
@@ -1086,7 +1376,7 @@ class UIManager {
 
     toggleMute() {
         this.muted = !this.muted;
-        this.muteBtn.textContent = this.muted ? 'Sound: off' : 'Sound: on';
+        this.muteBtn.textContent = this.muted ? '🔇' : '🔈';
         return this.muted;
     }
 
@@ -1127,7 +1417,7 @@ class Game {
         this.ambient = new AmbientSystem();
         this.collisions = new CollisionManager();
         this.renderer = new Renderer(this.ctx);
-        this.ui = new UIManager(() => this._resumeClock(), () => { });
+        this.ui = new UIManager(() => this._resumeClock(), (muted) => this.audio.setMuted(muted));
 
         this.baselineFrac = 0.6;
         this.elapsed = 0;
@@ -1142,6 +1432,19 @@ class Game {
         } else {
             document.getElementById('keyboard-hint').classList.add('visible');
         }
+
+        // Initialize audio on first user gesture to satisfy browser autoplay policy
+        const initAudio = () => {
+            if (!this.ui.muted) {
+                this.audio.init();
+            }
+            window.removeEventListener('click', initAudio);
+            window.removeEventListener('keydown', initAudio);
+            window.removeEventListener('touchstart', initAudio);
+        };
+        window.addEventListener('click', initAudio);
+        window.addEventListener('keydown', initAudio);
+        window.addEventListener('touchstart', initAudio);
 
         window.addEventListener('resize', () => this.resize());
         document.addEventListener('visibilitychange', () => {
@@ -1181,11 +1484,33 @@ class Game {
 
     _update(dt) {
         this.elapsed += dt;
+
+        // Track states before update to detect transitions for audio triggers
+        const prevWindState = this.wind.stateIndex;
+        const prevFogBoost = this.ambient.fogBoost;
+        const prevWalkCycle = this.player.walkCycle;
+
         this.wind.update(dt);
         this.player.update(dt, this.input.axis);
         this.camera.update(dt, this.player, this.w);
         const camDeltaX = this.camera.deltaX;
         this.ambient.update(dt);
+
+        // 1. Play wind gust sound when the wind shifts state
+        if (this.wind.stateIndex !== prevWindState) {
+            this.audio.playWind();
+        }
+
+        // 2. Play thunder rumble when a visual lightning flash occurs
+        if (this.ambient.fogBoost > prevFogBoost && this.ambient.fogBoost === 1) {
+            this.audio.playThunder();
+        }
+
+        // 3. Play footstep sounds synced with the bobbing walk animation cycle
+        const stepPeriod = Math.PI / 2;
+        if (Math.floor(this.player.walkCycle / stepPeriod) !== Math.floor(prevWalkCycle / stepPeriod)) {
+            this.audio.playFootstep();
+        }
 
         const viewMinX = this.camera.x - 150;
         const viewMaxX = this.camera.x + this.w + 150;
