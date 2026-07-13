@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "lib": ["es2017", "dom"],
+    "module": "none",
+    "outDir": "./js",
+    "strict": false,
+    "noImplicitAny": false,
+    "sourceMap": true,
+    "allowJs": true,
+    "downlevelIteration": true
+  },
+  "include": ["src/**/*"]
+}
