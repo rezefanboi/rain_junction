@@ -36,7 +36,6 @@ ER.Game = class Game {
         this._fixedDt = 1 / 120;
         this._accumulator = 0;
         this._lastTime = performance.now();
-        this._prevLegSign = 0;
         this.state = 'title'; // 'title' | 'playing' | 'ended'
         this._buildFreshState();
         this.ui.setState('title');
@@ -183,11 +182,6 @@ ER.Game = class Game {
         if (this.input.axis !== 0 && Math.abs(this.player.umbrella.angularVel) > 60 && Math.random() < 0.03) {
             this.audio.playUmbrellaSwish();
         }
-        // Soft alternating footstep ticks, timed off the walk-cycle leg swing.
-        const legSign = Math.sign(this.player.legSwing);
-        if (legSign !== 0 && legSign !== this._prevLegSign)
-            this.audio.playFootstep();
-        this._prevLegSign = legSign;
         this.camera.update(dt, this.player, this.w);
         const viewMinX = this.camera.x - 150;
         const viewMaxX = this.camera.x + this.w + 150;
@@ -226,10 +220,24 @@ ER.Game = class Game {
         this.renderer.drawFog(w, h, this.ambient.fogBoost);
 
         this.rain.renderLayer(ctx, 'bg', ER.Palette.coolGray);
+        const visible = this._visible;
+        if (visible) {
+            // Far-side scenery belongs behind the road's top edge. Drawing it here
+            // stops houses and trees from appearing to stand on the driving lane.
+            for (const o of visible.objects) {
+                if (o.side <= 0)
+                    continue;
+                const sx = this.renderer.worldToScreenX(this.camera, o.worldX);
+                if (sx < -120 || sx > w + 120)
+                    continue;
+                const roadY = this.renderer.roadScreenY(this.camera, o.worldX, h, this.baselineFrac);
+                this.renderer.drawObject(o, sx, roadY - 30, this.elapsed);
+            }
+        }
+        this.renderer.drawGround(this.camera, w, h, this.baselineFrac);
         this.renderer.drawGuardrail(this.camera, w, h, this.baselineFrac);
         this.renderer.drawRoad(this.camera, w, h, this.baselineFrac);
         this.renderer.drawPolesAndWires(this.camera, w, h, this.baselineFrac, this.elapsed);
-        const visible = this._visible;
         if (visible) {
             for (const p of visible.puddles) {
                 const sx = this.renderer.worldToScreenX(this.camera, p.worldX);
@@ -237,12 +245,13 @@ ER.Game = class Game {
                 this.renderer.drawPuddle(sx, sy, p, this.elapsed);
             }
             for (const o of visible.objects) {
+                if (o.side > 0)
+                    continue;
                 const sx = this.renderer.worldToScreenX(this.camera, o.worldX);
                 if (sx < -120 || sx > w + 120)
                     continue;
                 const roadY = this.renderer.roadScreenY(this.camera, o.worldX, h, this.baselineFrac);
-                const sy = o.side > 0 ? roadY - 6 : roadY + 30;
-                this.renderer.drawObject(o, sx, sy, this.elapsed);
+                this.renderer.drawObject(o, sx, roadY + 30, this.elapsed);
             }
             for (const a of visible.ambientEvents) {
                 const sx = this.renderer.worldToScreenX(this.camera, a.worldX);

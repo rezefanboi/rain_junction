@@ -42,6 +42,7 @@ ER.Palette = {
   fogNear: 'rgba(180,187,196,0.30)',
   mountains: '#4b566b',
   road: '#474d59',
+  ground: '#687587',
   roadLine: '#8b93a0',
   curb: '#5a616d',
   offWhite: '#e6e8ec',

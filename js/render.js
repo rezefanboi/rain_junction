@@ -119,6 +119,30 @@ ER.Renderer = class Renderer {
         ctx.fillRect(0, h * 0.5, w, h * 0.14);
         ctx.restore();
     }
+    drawGround(camera, w, h, baselineFrac) {
+        const ctx = this.ctx;
+        const samples = 40;
+        const worldStart = camera.x - 100;
+        const worldEnd = camera.x + w + 100;
+        const stepWorld = (worldEnd - worldStart) / samples;
+        ctx.save();
+        ctx.fillStyle = ER.Palette.ground;
+        ctx.beginPath();
+        for (let i = 0; i <= samples; i++) {
+            const wx = worldStart + i * stepWorld;
+            const sx = this.worldToScreenX(camera, wx);
+            const sy = this.roadScreenY(camera, wx, h, baselineFrac) + 34;
+            if (i === 0)
+                ctx.moveTo(sx, sy);
+            else
+                ctx.lineTo(sx, sy);
+        }
+        ctx.lineTo(w + 100, h + 1);
+        ctx.lineTo(-100, h + 1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+    }
     drawRoad(camera, w, h, baselineFrac) {
         const ctx = this.ctx;
         const samples = 40;
@@ -442,95 +466,114 @@ ER.Renderer = class Renderer {
         const hairSway = Math.sin(player.walkCycle * 1.4) * 2.2 + windLean * 2.4;
         ctx.save();
         ctx.translate(sx, sy + bob + jumpY);
-        // --- legs, thin and pale ---
-        ctx.strokeStyle = ER.Palette.charcoal;
-        ctx.globalAlpha = 0.85;
-        ctx.lineWidth = 4;
+        // --- legs and small shoes ---
+        ctx.strokeStyle = ER.Palette.skin;
+        ctx.globalAlpha = 0.95;
+        ctx.lineWidth = 3.2;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(-3, -20);
-        ctx.lineTo(-3 + legSwing * 0.3, -1);
-        ctx.moveTo(3, -20);
-        ctx.lineTo(3 - legSwing * 0.3, -1);
+        ctx.moveTo(-3, -18);
+        ctx.lineTo(-3 + legSwing * 0.3, -2);
+        ctx.moveTo(3, -18);
+        ctx.lineTo(3 - legSwing * 0.3, -2);
         ctx.stroke();
-        // shoes
-        ctx.fillStyle = ER.Palette.offWhite;
-        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = ER.Palette.charcoal;
+        ctx.globalAlpha = 0.92;
         ctx.beginPath();
-        ctx.ellipse(-3 + legSwing * 0.3, 0, 4, 2.2, 0, 0, Math.PI * 2);
-        ctx.ellipse(3 - legSwing * 0.3, 0, 4, 2.2, 0, 0, Math.PI * 2);
+        ctx.ellipse(-2 + legSwing * 0.3, 0, 4.5, 2.1, 0, 0, Math.PI * 2);
+        ctx.ellipse(4 - legSwing * 0.3, 0, 4.5, 2.1, 0, 0, Math.PI * 2);
         ctx.fill();
-        // --- skirt: dark, pleated, flares slightly with the walk ---
+        // --- short A-line skirt ---
         const skirtSway = legSwing * 0.14;
-        ctx.fillStyle = ER.Palette.darkGray;
-        ctx.globalAlpha = 0.95;
+        ctx.fillStyle = ER.Palette.charcoal;
+        ctx.globalAlpha = 0.96;
         ctx.beginPath();
-        ctx.moveTo(-9, -30);
-        ctx.lineTo(9, -30);
-        ctx.lineTo(12 + skirtSway, -12);
-        ctx.lineTo(-12 + skirtSway, -12);
+        ctx.moveTo(-7.5, -31);
+        ctx.lineTo(7.5, -31);
+        ctx.lineTo(13 + skirtSway, -16);
+        ctx.lineTo(-13 + skirtSway, -16);
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = ER.Palette.charcoal;
-        ctx.globalAlpha = 0.22;
+        ctx.strokeStyle = ER.Palette.coolGray;
+        ctx.globalAlpha = 0.3;
         ctx.lineWidth = 1;
         for (let i = -1; i <= 1; i++) {
             ctx.beginPath();
-            ctx.moveTo(i * 6, -29);
-            ctx.lineTo(i * 6 + skirtSway * 0.6, -13);
+            ctx.moveTo(i * 5, -30);
+            ctx.lineTo(i * 7 + skirtSway * 0.6, -17);
             ctx.stroke();
         }
-        // --- blouse: oversized, white, sailor collar ---
+        // --- softly shaped blouse and sleeves ---
         ctx.fillStyle = ER.Palette.offWhite;
         ctx.globalAlpha = 0.97;
         ctx.beginPath();
-        ctx.roundRect(-12, -52, 24, 24, 7);
+        ctx.moveTo(-8, -52);
+        ctx.lineTo(8, -52);
+        ctx.lineTo(10, -31);
+        ctx.lineTo(-10, -31);
+        ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = ER.Palette.charcoal;
-        ctx.globalAlpha = 0.5;
-        ctx.lineWidth = 1.3;
+        ctx.strokeStyle = ER.Palette.offWhite;
+        ctx.globalAlpha = 0.9;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(-7, -48);
+        ctx.lineTo(-12, -35);
+        ctx.moveTo(7, -48);
+        ctx.lineTo(12, -35);
+        ctx.stroke();
+        // --- sailor collar and a small bow ---
+        ctx.strokeStyle = ER.Palette.accent;
+        ctx.globalAlpha = 0.9;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(-6, -52);
         ctx.lineTo(0, -44);
         ctx.lineTo(6, -52);
         ctx.stroke();
         ctx.fillStyle = ER.Palette.charcoal;
-        ctx.globalAlpha = 0.45;
+        ctx.globalAlpha = 0.72;
         ctx.beginPath();
-        ctx.moveTo(0, -44);
-        ctx.lineTo(-2.4, -39);
-        ctx.lineTo(2.4, -39);
+        ctx.moveTo(0, -43);
+        ctx.lineTo(-3, -39);
+        ctx.lineTo(0, -38);
+        ctx.lineTo(3, -39);
         ctx.closePath();
         ctx.fill();
-        // --- head: pale, minimal ---
+        // --- head and long hair ---
         ctx.fillStyle = ER.Palette.skin;
         ctx.globalAlpha = 1;
         ctx.beginPath();
-        ctx.arc(0, -58, 8.5, 0, Math.PI * 2);
+        ctx.ellipse(0, -59, 7.7, 9, 0, 0, Math.PI * 2);
         ctx.fill();
-        // --- hair: long, straight, black; trails slightly with walk + wind ---
         ctx.fillStyle = ER.Palette.hair;
         ctx.globalAlpha = 0.95;
         ctx.beginPath();
-        ctx.moveTo(-8, -63);
-        ctx.quadraticCurveTo(-11 + hairSway * 0.5, -50, -9 + hairSway, -27);
-        ctx.quadraticCurveTo(-4, -30, -6, -50);
+        ctx.moveTo(-7, -65);
+        ctx.quadraticCurveTo(-13 + hairSway * 0.5, -53, -10 + hairSway, -25);
+        ctx.quadraticCurveTo(-5 + hairSway, -22, -5, -49);
         ctx.closePath();
         ctx.fill();
         ctx.beginPath();
-        ctx.moveTo(8, -63);
-        ctx.quadraticCurveTo(11 + hairSway * 0.5, -50, 9 + hairSway, -27);
-        ctx.quadraticCurveTo(4, -30, 6, -50);
+        ctx.moveTo(7, -65);
+        ctx.quadraticCurveTo(13 + hairSway * 0.5, -53, 10 + hairSway, -25);
+        ctx.quadraticCurveTo(5 + hairSway, -22, 5, -49);
         ctx.closePath();
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(0, -61, 8.7, Math.PI, 0);
+        ctx.arc(0, -61, 8.8, Math.PI, 0);
         ctx.fill();
-        // minimal face — a single tiny mark, mostly silhouette
+        // minimal face — two tiny eyes and a warm cheek mark
         ctx.fillStyle = ER.Palette.charcoal;
-        ctx.globalAlpha = 0.5;
+        ctx.globalAlpha = 0.55;
         ctx.beginPath();
-        ctx.arc(3.2, -58, 0.85, 0, Math.PI * 2);
+        ctx.arc(-2.5, -59, 0.65, 0, Math.PI * 2);
+        ctx.arc(2.5, -59, 0.65, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = ER.Palette.window;
+        ctx.globalAlpha = 0.35;
+        ctx.beginPath();
+        ctx.arc(4.3, -55.5, 1.1, 0, Math.PI * 2);
         ctx.fill();
         // --- umbrella: unchanged geometry — still the entire mechanic ---
         ctx.save();
