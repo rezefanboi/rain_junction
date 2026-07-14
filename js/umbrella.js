@@ -21,12 +21,34 @@ ER.Umbrella = class Umbrella {
     constructor() {
         this.angle = 0; // degrees from vertical, matches wind convention
         this.angularVel = 0;
-        this.maxAngle = 62;
+        this.maxAngle = 62;      // absolute hard cap (degrees)
+        this.maxAngleRight = 62; // dynamic per-side limit — updated each frame via setScreenBounds()
+        this.maxAngleLeft  = 62;
         this.maxSpeed = 150; // deg/s
         this.turnRate = 11; // how quickly angularVel eases toward target (damp lambda)
         this.friction = 4.6; // damping when released
         this.canopyLength = 58;
         this.canopyHalfWidth = 21;
+    }
+    /**
+     * Called each frame with the umbrella pivot's screen X and the canvas width.
+     * Computes the maximum tilt angle (degrees) allowed on each side so the
+     * canopy tip never travels beyond the visible screen edge.
+     *
+     * Geometry: the tip is offset horizontally by sin(angle) * canopyLength from
+     * the pivot, so the limit angle for a given clearance `d` is:
+     *   asin(clamp(d / canopyLength, 0, 1))  — converted to degrees.
+     *
+     * pivotX  = player screen X (umbrella is drawn at player origin translate(0,-50))
+     * screenW = canvas logical width
+     */
+    setScreenBounds(pivotX, screenW) {
+        const edgeMargin = 12; // px cushion so the rim never kisses the edge
+        const rightRoom = Math.max(0, screenW - pivotX - edgeMargin);
+        const leftRoom  = Math.max(0, pivotX  - edgeMargin);
+        const toDeg = r => r * (180 / Math.PI);
+        this.maxAngleRight = Math.min(this.maxAngle, toDeg(Math.asin(Math.min(1, rightRoom / this.canopyLength))));
+        this.maxAngleLeft  = Math.min(this.maxAngle, toDeg(Math.asin(Math.min(1, leftRoom  / this.canopyLength))));
     }
     update(dt, axis) {
         if (axis !== 0) {
@@ -37,12 +59,13 @@ ER.Umbrella = class Umbrella {
             this.angularVel *= Math.max(0, 1 - this.friction * dt);
         }
         this.angle += this.angularVel * dt;
-        if (this.angle > this.maxAngle) {
-            this.angle = this.maxAngle;
+        // Use the per-side dynamic limits so the canopy can't fly off-screen.
+        if (this.angle > this.maxAngleRight) {
+            this.angle = this.maxAngleRight;
             this.angularVel = 0;
         }
-        if (this.angle < -this.maxAngle) {
-            this.angle = -this.maxAngle;
+        if (this.angle < -this.maxAngleLeft) {
+            this.angle = -this.maxAngleLeft;
             this.angularVel = 0;
         }
     }

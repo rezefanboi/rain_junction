@@ -16,7 +16,7 @@ ER.Camera = class Camera {
     }
     update(dt, player, viewW) {
         const desiredX = player.worldX - viewW * this.anchorFrac;
-        this.x = ER.Util.damp(this.x, desiredX, 4.2, dt);
+        this.x = ER.Util.damp(this.x, desiredX, 8.0, dt);
         // Vertical compensation follows the road's elevation with its own spring
         // so hills feel weighty rather than instantly snapping the horizon.
         this.targetY = -player.groundY;

@@ -28,7 +28,7 @@ ER.AudioManager = class AudioManager {
             return;
         this.ctx = new AC();
         this.master = this.ctx.createGain();
-        this.master.gain.value = this.muted ? 0 : 0.85;
+        this.master.gain.value = this.muted ? 0 : 0.35;
         this.master.connect(this.ctx.destination);
         this._buildNoiseBuffer();
         this._buildRainLoop();
@@ -55,17 +55,17 @@ ER.AudioManager = class AudioManager {
         const near = this._noiseSource();
         const nearFilter = ctx.createBiquadFilter();
         nearFilter.type = 'highpass';
-        nearFilter.frequency.value = 1800;
+        nearFilter.frequency.value = 2800;  // raised: thinner, airier hiss
         const nearGain = ctx.createGain();
-        nearGain.gain.value = 0.05;
+        nearGain.gain.value = 0.008;        // very gentle near layer
         near.connect(nearFilter).connect(nearGain).connect(this.master);
         near.start();
         const far = this._noiseSource();
         const farFilter = ctx.createBiquadFilter();
         farFilter.type = 'lowpass';
-        farFilter.frequency.value = 700;
+        farFilter.frequency.value = 400;    // lowered: less boomy, more distant
         const farGain = ctx.createGain();
-        farGain.gain.value = 0.10;
+        farGain.gain.value = 0.015;         // soft far rumble
         far.connect(farFilter).connect(farGain).connect(this.master);
         far.start();
         this._rainGain = { near: nearGain, far: farGain };
@@ -76,8 +76,8 @@ ER.AudioManager = class AudioManager {
             return;
         if (this._rainGain) {
             const t = this.ctx.currentTime;
-            this._rainGain.near.gain.setTargetAtTime(0.05 + gust * 0.04, t, 0.6);
-            this._rainGain.far.gain.setTargetAtTime(0.10 + gust * 0.05, t, 0.6);
+            this._rainGain.near.gain.setTargetAtTime(0.008 + gust * 0.005, t, 0.8);
+            this._rainGain.far.gain.setTargetAtTime(0.015 + gust * 0.008, t, 0.8);
         }
     }
     _envGain(attack, hold, release, peak = 1) {
@@ -186,7 +186,7 @@ ER.AudioManager = class AudioManager {
     setMuted(m) {
         this.muted = m;
         if (this.master)
-            this.master.gain.setTargetAtTime(m ? 0 : 0.85, this.ctx.currentTime, 0.08);
+            this.master.gain.setTargetAtTime(m ? 0 : 0.35, this.ctx.currentTime, 0.08);
     }
 };
 //# sourceMappingURL=audio.js.map

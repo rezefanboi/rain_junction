@@ -212,26 +212,28 @@ canvas{
 /* ---------------- Touch controls ---------------- */
 #touch-controls{
   position:absolute; bottom:0; left:0; right:0;
-  display:none; justify-content:space-between; align-items:flex-end;
-  padding: 0 max(22px, env(safe-area-inset-left)) max(30px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
+  display:none; justify-content:center; align-items:flex-end;
+  gap:24px;
+  padding: 0 0 max(36px, env(safe-area-inset-bottom));
   pointer-events:none;
   z-index:10;
 }
 #touch-controls.visible{ display:flex; }
-.touch-group{ display:flex; gap:14px; pointer-events:none; }
+.touch-group{ display:flex; gap:18px; pointer-events:none; align-items:flex-end; }
 .touch-btn{
-  width:72px; height:72px; border-radius:50%;
-  background:rgba(24,27,34,0.4);
-  border:1.5px solid rgba(230,232,236,0.18);
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  width:86px; height:86px; border-radius:50%;
+  background:rgba(24,27,34,0.55);
+  border:2px solid rgba(230,232,236,0.28);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   display:flex; align-items:center; justify-content:center;
   color:var(--off-white);
   pointer-events:auto;
   transition:background .12s ease, transform .12s ease;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.35);
 }
-.touch-btn svg{ width:24px; height:24px; }
-.touch-btn.active{ background:rgba(24,27,34,0.75); transform:scale(0.94); }
-#btn-jump{ width:60px; height:60px; align-self:flex-end; margin-bottom:6px; }
+.touch-btn svg{ width:32px; height:32px; stroke-width:2.5; }
+.touch-btn.active{ background:rgba(24,27,34,0.85); transform:scale(0.92); }
+#btn-jump{ width:72px; height:72px; align-self:flex-end; margin-bottom:8px; }
 
 /* ---------------- Pause overlay ---------------- */
 #pause-overlay{

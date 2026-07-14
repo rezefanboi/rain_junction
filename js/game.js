@@ -137,7 +137,11 @@ ER.Game = class Game {
         }
         const camDeltaX = this.camera.deltaX;
         this.rain.update(dt, this.wind, camDeltaX);
-        const px = this.renderer.worldToScreenX(this.camera, this.player.worldX);
+        const rawPx = this.renderer.worldToScreenX(this.camera, this.player.worldX);
+        // Clamp the player's screen position so the character and umbrella never
+        // drift off-screen while the spring camera is catching up.
+        const playerMargin = 80;
+        const px = ER.Util.clamp(rawPx, playerMargin, this.w - playerMargin);
         const py = this.renderer.roadScreenY(this.camera, this.player.worldX, this.h, this.baselineFrac) + 30;
         if (this.state === 'playing') {
             this.collisions.resolve(this.player, this.rain, px, py);
@@ -166,6 +170,13 @@ ER.Game = class Game {
     _updatePlaying(dt) {
         const jumpPressed = this.input.consumeJump();
         const wasJumping = this.player.isJumping;
+        // Tell the umbrella where the screen edges are so it can cap its tilt
+        // angle per-side — the canopy tip will never fly beyond the viewport.
+        const pivotX = ER.Util.clamp(
+            this.renderer.worldToScreenX(this.camera, this.player.worldX),
+            80, this.w - 80
+        );
+        this.player.umbrella.setScreenBounds(pivotX, this.w);
         this.player.update(dt, this.input.axis, jumpPressed);
         if (!wasJumping && this.player.isJumping)
             this.audio.playJump();

@@ -61,6 +61,9 @@
 
   // ── Wind ────────────────────────────────────────────────
   const wind = { baseX: .28, gustX: 0, str: 0, dir: 1, phase: 'idle', pT: 0, idleT: 1.2 };
+  function firstGustDelay() {
+    return W < 520 ? 2.6 : 1.6;
+  }
   function updateWind(dt) {
     switch (wind.phase) {
       case 'idle': wind.idleT -= dt; if (wind.idleT <= 0 && gameStarted) { wind.phase='ramp'; wind.pT=0.9; wind.dir=Math.random()<.68?1:-1; wind.str=0; const el=document.getElementById('shimmy-gust-warn'); if(el){el.textContent=wind.dir>0?'wind →':'← wind';el.classList.add('visible');setTimeout(()=>el.classList.remove('visible'),1700);} } break;
@@ -97,8 +100,12 @@
 
   // ── Umbrellas ───────────────────────────────────────────
   let umbrellas = [], draggedUmb = null, hintShown = false;
+  function npcReadyForGust(n) {
+    const edgePad = Math.max(46, 34 * n.sc);
+    return n.x > edgePad && n.x < W - edgePad;
+  }
   function blowOff() {
-    const cands = npcs.filter(n => n.hasUmb && n.state==='walk');
+    const cands = npcs.filter(n => n.hasUmb && n.state==='walk' && npcReadyForGust(n));
     if (!cands.length) return;
     // Steal 1–3 umbrellas per gust for chaos
     const numSteal = Math.min(cands.length, 1 + Math.floor(Math.random() * 3));
@@ -334,12 +341,13 @@
 
   function startGame() {
     if (gameStarted) return; gameStarted = true;
+    wind.phase = 'idle'; wind.pT = 0; wind.str = 0; wind.gustX = 0; wind.idleT = firstGustDelay();
     const ov = document.getElementById('shimmy-instructions');
     if (ov) { ov.style.opacity='0'; ov.style.transition='opacity .5s ease'; setTimeout(()=>ov.style.display='none',500); }
   }
 
   function init() {
-    resize(); spawnNpc(); setTimeout(spawnNpc, 800); setTimeout(spawnNpc, 1500); setTimeout(spawnNpc, 2200); npcTimer = 1.4; lastT = performance.now();
+    resize(); spawnNpc(); setTimeout(spawnNpc, 800); setTimeout(spawnNpc, 1500); setTimeout(spawnNpc, 2200); npcTimer = 1.4; wind.idleT = firstGustDelay(); lastT = performance.now();
     document.getElementById('shimmy-start-btn')?.addEventListener('click', startGame);
     canvas.addEventListener('click', () => { if (!gameStarted) startGame(); });
     requestAnimationFrame(tick);
