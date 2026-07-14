@@ -60,15 +60,15 @@
   }
 
   // ── Wind ────────────────────────────────────────────────
-  const wind = { baseX: .20, gustX: 0, str: 0, dir: 1, phase: 'idle', pT: 0, idleT: 3.5 };
+  const wind = { baseX: .28, gustX: 0, str: 0, dir: 1, phase: 'idle', pT: 0, idleT: 1.2 };
   function updateWind(dt) {
     switch (wind.phase) {
-      case 'idle': wind.idleT -= dt; if (wind.idleT <= 0 && gameStarted) { wind.phase='ramp'; wind.pT=1.3; wind.dir=Math.random()<.68?1:-1; wind.str=0; const el=document.getElementById('shimmy-gust-warn'); if(el){el.textContent=wind.dir>0?'wind →':'← wind';el.classList.add('visible');setTimeout(()=>el.classList.remove('visible'),1700);} } break;
-      case 'ramp': wind.pT-=dt; wind.str=Math.min(wind.str+dt/1.3,1); if(wind.pT<=0){wind.phase='peak';wind.pT=.5;blowOff();} break;
-      case 'peak': wind.pT-=dt; if(wind.pT<=0){wind.phase='fade';wind.pT=1.8;} break;
-      case 'fade': wind.pT-=dt; wind.str=Math.max(wind.str-dt/1.8,0); if(wind.pT<=0){wind.phase='idle';wind.idleT=3.5+Math.random()*6;wind.str=0;} break;
+      case 'idle': wind.idleT -= dt; if (wind.idleT <= 0 && gameStarted) { wind.phase='ramp'; wind.pT=0.9; wind.dir=Math.random()<.68?1:-1; wind.str=0; const el=document.getElementById('shimmy-gust-warn'); if(el){el.textContent=wind.dir>0?'wind →':'← wind';el.classList.add('visible');setTimeout(()=>el.classList.remove('visible'),1700);} } break;
+      case 'ramp': wind.pT-=dt; wind.str=Math.min(wind.str+dt/0.9,1); if(wind.pT<=0){wind.phase='peak';wind.pT=0.8;blowOff();} break;
+      case 'peak': wind.pT-=dt; if(wind.pT<=0){wind.phase='fade';wind.pT=1.4;} break;
+      case 'fade': wind.pT-=dt; wind.str=Math.max(wind.str-dt/1.4,0); if(wind.pT<=0){wind.phase='idle';wind.idleT=1.2+Math.random()*2.5;wind.str=0;} break;
     }
-    wind.gustX = wind.dir * wind.str * .62;
+    wind.gustX = wind.dir * wind.str * .88;
   }
 
   // ── NPCs ────────────────────────────────────────────────
@@ -100,16 +100,23 @@
   function blowOff() {
     const cands = npcs.filter(n => n.hasUmb && n.state==='walk');
     if (!cands.length) return;
-    const n = cands[Math.floor(Math.random() * cands.length)];
-    n.hasUmb = false; n.state = 'surprised'; n.stT = 1.8;
-    umbrellas.push({ x:n.x, y:n.y-68*n.sc, vx:wind.dir*(230+Math.random()*130), vy:-92-Math.random()*55, angle:n.umbAngle, angVel:(Math.random()-.5)*260+wind.dir*145, col:n.umbCol, owner:n, state:'drift', timer:6.5, nearHL:0 });
+    // Steal 1–3 umbrellas per gust for chaos
+    const numSteal = Math.min(cands.length, 1 + Math.floor(Math.random() * 3));
+    // Shuffle candidates so we pick random ones
+    for (let i = cands.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [cands[i],cands[j]]=[cands[j],cands[i]]; }
+    for (let s = 0; s < numSteal; s++) {
+      const n = cands[s];
+      n.hasUmb = false; n.state = 'surprised'; n.stT = 1.8;
+      umbrellas.push({ x:n.x, y:n.y-68*n.sc, vx:wind.dir*(320+Math.random()*200), vy:-130-Math.random()*80, angle:n.umbAngle, angVel:(Math.random()-.5)*420+wind.dir*200, col:n.umbCol, owner:n, state:'drift', timer:5.5, nearHL:0 });
+    }
     if (!hintShown) { hintShown=true; const h=document.getElementById('shimmy-drag-hint'); if(h){h.classList.add('visible');setTimeout(()=>h.classList.remove('visible'),3200);} }
   }
   function updateUmbrellas(dt) {
     const wx = wind.baseX + wind.gustX;
     for (const u of umbrellas) {
       if (u.state==='grabbed') { u.x+=(mouse.x-u.x)*Math.min(dt*14,1); u.y+=(mouse.y-u.y)*Math.min(dt*14,1); u.angle+=(0-u.angle)*dt*7.5; u.timer-=dt; u.nearHL=0; if(u.timer<=0) loseUmb(u); }
-      else if (u.state==='drift') { u.timer-=dt; u.vx+=wx*108*dt; u.vy+=28*dt; u.vx*=Math.pow(.925,dt*60); u.vy*=Math.pow(.925,dt*60); u.x+=u.vx*dt; u.y+=u.vy*dt; u.angle+=u.angVel*dt; u.angVel*=Math.pow(.87,dt*60); const dx=u.x-mouse.x,dy=u.y-mouse.y; u.nearHL=Math.max(0,1-Math.sqrt(dx*dx+dy*dy)/65); if(u.timer<=0||u.x<-110||u.x>W+110||u.y<-100||u.y>H+60) loseUmb(u); }
+      // Drift: stronger wind push, faster spin decay, bigger drag radius
+      else if (u.state==='drift') { u.timer-=dt; u.vx+=wx*160*dt; u.vy+=32*dt; u.vx*=Math.pow(.91,dt*60); u.vy*=Math.pow(.91,dt*60); u.x+=u.vx*dt; u.y+=u.vy*dt; u.angle+=u.angVel*dt; u.angVel*=Math.pow(.84,dt*60); const dx=u.x-mouse.x,dy=u.y-mouse.y; u.nearHL=Math.max(0,1-Math.sqrt(dx*dx+dy*dy)/80); if(u.timer<=0||u.x<-130||u.x>W+130||u.y<-120||u.y>H+80) loseUmb(u); }
     }
     umbrellas = umbrellas.filter(u => u.state==='drift'||u.state==='grabbed');
   }
@@ -266,9 +273,9 @@
     ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=1; ctx.beginPath(); for(let r=-3;r<=3;r++){ctx.moveTo(0,-34);ctx.lineTo(r<0?-29:29,-34);} ctx.stroke();
     ctx.restore();
     if (state==='drift'||state==='grabbed') {
-      const frac = Math.max(0, timer/6.5);
+      const frac = Math.max(0, timer/5.5);
       ctx.save(); ctx.translate(x,y); ctx.rotate(angle*Math.PI/180);
-      ctx.strokeStyle=frac>.45?'rgba(78,205,128,.86)':'rgba(218,72,62,.86)'; ctx.lineWidth=3.2; ctx.lineCap='round'; ctx.globalAlpha=.88;
+      ctx.strokeStyle=frac>.55?'rgba(78,205,128,.86)':'rgba(218,72,62,.86)'; ctx.lineWidth=3.2; ctx.lineCap='round'; ctx.globalAlpha=.88;
       ctx.beginPath(); ctx.arc(0,-34,40,-Math.PI/2,-Math.PI/2+Math.PI*2*frac); ctx.stroke();
       ctx.restore();
     }
@@ -332,7 +339,7 @@
   }
 
   function init() {
-    resize(); spawnNpc(); setTimeout(spawnNpc, 1800); npcTimer = 2.2; lastT = performance.now();
+    resize(); spawnNpc(); setTimeout(spawnNpc, 800); setTimeout(spawnNpc, 1500); setTimeout(spawnNpc, 2200); npcTimer = 1.4; lastT = performance.now();
     document.getElementById('shimmy-start-btn')?.addEventListener('click', startGame);
     canvas.addEventListener('click', () => { if (!gameStarted) startGame(); });
     requestAnimationFrame(tick);
