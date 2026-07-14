@@ -69,6 +69,45 @@ ER.Renderer = class Renderer {
         ctx.fill();
         ctx.restore();
     }
+    /**
+     * Multilayered parallax city skyline — 4 depth layers of buildings drawn
+     * between the mountains and the fog band for a rich, alive background.
+     */
+    drawCityBackground(camera, w, h, baselineFrac) {
+        const ctx = this.ctx;
+        const baselineY = h * baselineFrac;
+        const sr = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5; return x - Math.floor(x); };
+        // 4 graduated layers anchored AT road horizon — far=faint/small, near=bold/large
+        const layers = [
+            { parallax: 0.04, alpha: 0.18, hFrac: 0.24, tileW: 40, cf: '#0b0f17', seed: 40  },
+            { parallax: 0.09, alpha: 0.30, hFrac: 0.38, tileW: 54, cf: '#101720', seed: 80  },
+            { parallax: 0.16, alpha: 0.44, hFrac: 0.52, tileW: 68, cf: '#162030', seed: 120 },
+            { parallax: 0.26, alpha: 0.58, hFrac: 0.66, tileW: 86, cf: '#1d2a3a', seed: 160 },
+        ];
+        for (const [li, L] of layers.entries()) {
+            ctx.save();
+            const camOff = camera.x * L.parallax;
+            const startI = Math.floor((camOff - 100) / L.tileW);
+            for (let bi = startI; bi < startI + Math.ceil((w + 220) / L.tileW) + 2; bi++) {
+                const bw = L.tileW * (0.5 + sr(L.seed + bi * 7) * 0.72);
+                const bh = baselineY * L.hFrac * (0.38 + sr(L.seed + bi * 13) * 0.76);
+                const bx = bi * L.tileW - camOff;
+                const by = baselineY; // anchored at road horizon
+                ctx.globalAlpha = L.alpha;
+                ctx.fillStyle = L.cf;
+                ctx.fillRect(bx, by - bh, bw, bh);
+                // Window lights
+                ctx.fillStyle = 'rgba(200,222,255,0.11)';
+                const wr = 2 + li, wh = 4 + Math.round(li * 0.5);
+                for (let wy = by - bh + 7; wy < by - 5; wy += 12) {
+                    for (let wx = bx + 4; wx < bx + bw - 3; wx += 9) {
+                        if (sr(wx * 0.09 + wy * 0.07 + li * 50) > 0.44) ctx.fillRect(wx, wy, wr, wh);
+                    }
+                }
+            }
+            ctx.restore();
+        }
+    }
     drawFog(w, h, boost) {
         const ctx = this.ctx;
         ctx.save();

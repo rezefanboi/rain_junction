@@ -211,7 +211,9 @@ ER.Game = class Game {
         const { ctx, w, h } = this;
         this.renderer.clear(w, h);
         this.renderer.drawMountains(this.camera, w, h, this.baselineFrac);
+        this.renderer.drawCityBackground(this.camera, w, h, this.baselineFrac);
         this.renderer.drawFog(w, h, this.ambient.fogBoost);
+
         this.rain.renderLayer(ctx, 'bg', ER.Palette.coolGray);
         this.renderer.drawGuardrail(this.camera, w, h, this.baselineFrac);
         this.renderer.drawRoad(this.camera, w, h, this.baselineFrac);

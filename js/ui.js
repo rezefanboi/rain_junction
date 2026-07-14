@@ -1,13 +1,16 @@
 'use strict';
 /* ============================================================================
- * AS THE DROPLETS FALL — ui.js
- * All DOM-facing logic: the title screen (tap-anywhere-to-start, social
- * links live only here), the in-game HUD, the settings menu, the pause
- * card, and a dedicated Game Over screen with Retry / Main Menu.
+ * RAIN JUNCTION — ui.js
+ * All DOM-facing logic: the hub/title screen, in-game HUD, settings menu,
+ * pause card, and the Game Over screen.
  *
- * `frame.dataset.state` drives almost all of the visibility in CSS
- * ('title' | 'playing' | 'ended'), so this class mostly just flips that
- * attribute and wires up button callbacks — it doesn't fight the CSS.
+ * The title screen is now a two-card game selector ("Rain Junction" hub).
+ * Clicking #card-droplets launches "As the Droplets Fall".
+ * #card-shimmy is a plain <a> link to shimmy.html — no JS needed.
+ *
+ * `frame.dataset.state` drives all visibility via CSS
+ * ('title' | 'playing' | 'ended'), so this class just flips that attribute
+ * and wires callbacks — it doesn't fight the CSS.
  * ==========================================================================*/
 window.ER = window.ER || {};
 ER.UIManager = class UIManager {
@@ -36,29 +39,75 @@ ER.UIManager = class UIManager {
         this.mainMenuBtn = document.getElementById('btn-mainmenu');
         this.paused = false;
         this.muted = false;
-        // Tap/click anywhere on the title screen (but not on a social link) starts the game.
-        this.titleScreen.addEventListener('click', (e) => {
+
+        // ── "As the Droplets Fall" card → start game ──────────────────────────
+        const cardDroplets = document.getElementById('card-droplets');
+        if (cardDroplets) {
+            cardDroplets.addEventListener('click', () => {
+                var _a, _b, _c, _d;
+                (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a);
+                (_d = (_c = this.cb).onStart) === null || _d === void 0 ? void 0 : _d.call(_c);
+            });
+            cardDroplets.addEventListener('touchend', (e) => {
+                var _a, _b, _c, _d;
+                e.preventDefault();
+                (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a);
+                (_d = (_c = this.cb).onStart) === null || _d === void 0 ? void 0 : _d.call(_c);
+            }, { passive: false });
+            // Keyboard accessibility
+            cardDroplets.addEventListener('keydown', (e) => {
+                var _a, _b, _c, _d;
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a);
+                    (_d = (_c = this.cb).onStart) === null || _d === void 0 ? void 0 : _d.call(_c);
+                }
+            });
+        }
+
+        // ── Resume ────────────────────────────────────────────────────────────
+        this.resumeBtn.addEventListener('click', () => {
             var _a, _b, _c, _d;
-            if (e.target.closest('.social-icon'))
-                return;
             (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a);
-            (_d = (_c = this.cb).onStart) === null || _d === void 0 ? void 0 : _d.call(_c);
+            this.setPaused(false);
+            (_d = (_c = this.cb).onResume) === null || _d === void 0 ? void 0 : _d.call(_c);
         });
-        this.titleScreen.addEventListener('touchend', (e) => {
+
+        // ── Retry / Main Menu ─────────────────────────────────────────────────
+        this.retryBtn.addEventListener('click', () => {
             var _a, _b, _c, _d;
-            if (e.target.closest('.social-icon'))
-                return;
-            e.preventDefault();
             (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a);
-            (_d = (_c = this.cb).onStart) === null || _d === void 0 ? void 0 : _d.call(_c);
-        }, { passive: false });
-        this.resumeBtn.addEventListener('click', () => { var _a, _b, _c, _d; (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a); this.setPaused(false); (_d = (_c = this.cb).onResume) === null || _d === void 0 ? void 0 : _d.call(_c); });
-        this.retryBtn.addEventListener('click', () => { var _a, _b, _c, _d; (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a); (_d = (_c = this.cb).onRetry) === null || _d === void 0 ? void 0 : _d.call(_c); });
-        this.mainMenuBtn.addEventListener('click', () => { var _a, _b, _c, _d; (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a); (_d = (_c = this.cb).onMainMenu) === null || _d === void 0 ? void 0 : _d.call(_c); });
-        this.pauseRow.addEventListener('click', () => { var _a, _b; (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a); this.setPaused(true); this._closeMenu(); });
-        this.muteRow.addEventListener('click', () => { var _a, _b; (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a); this.toggleMute(); });
-        this.fullscreenRow.addEventListener('click', () => { var _a, _b; (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a); this.toggleFullscreen(); });
-        this.quitRow.addEventListener('click', () => { var _a, _b, _c, _d; (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a); this._closeMenu(); (_d = (_c = this.cb).onMainMenu) === null || _d === void 0 ? void 0 : _d.call(_c); });
+            (_d = (_c = this.cb).onRetry) === null || _d === void 0 ? void 0 : _d.call(_c);
+        });
+        this.mainMenuBtn.addEventListener('click', () => {
+            var _a, _b, _c, _d;
+            (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a);
+            (_d = (_c = this.cb).onMainMenu) === null || _d === void 0 ? void 0 : _d.call(_c);
+        });
+
+        // ── In-game settings panel ────────────────────────────────────────────
+        this.pauseRow.addEventListener('click', () => {
+            var _a, _b;
+            (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a);
+            this.setPaused(true);
+            this._closeMenu();
+        });
+        this.muteRow.addEventListener('click', () => {
+            var _a, _b;
+            (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a);
+            this.toggleMute();
+        });
+        this.fullscreenRow.addEventListener('click', () => {
+            var _a, _b;
+            (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a);
+            this.toggleFullscreen();
+        });
+        this.quitRow.addEventListener('click', () => {
+            var _a, _b, _c, _d;
+            (_b = (_a = this.cb).onUiTap) === null || _b === void 0 ? void 0 : _b.call(_a);
+            this._closeMenu();
+            (_d = (_c = this.cb).onMainMenu) === null || _d === void 0 ? void 0 : _d.call(_c);
+        });
         this.menuBtn.addEventListener('click', (e) => {
             var _a, _b;
             e.stopPropagation();
@@ -86,7 +135,8 @@ ER.UIManager = class UIManager {
     }
     toggleMute() {
         this.muted = !this.muted;
-        this.muteRow.querySelector('.menu-row-label').textContent = this.muted ? 'Sound: off' : 'Sound: on';
+        this.muteRow.querySelector('.menu-row-label').textContent =
+            this.muted ? 'Sound: off' : 'Sound: on';
         this._closeMenu();
         return this.muted;
     }
