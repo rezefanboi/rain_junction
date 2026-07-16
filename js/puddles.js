@@ -15,31 +15,34 @@
  * forget they exist until one quietly appears.
  * ==========================================================================*/
 window.ER = window.ER || {};
-
 ER.PuddleSystem = class PuddleSystem {
-  constructor() {
-    this.margin = 6;     // small forgiveness so jump timing needn't be pixel-perfect
-    this.missPenalty = 5; // small, non-punishing dryness cost for a missed puddle
-  }
-
-  update(player, visiblePuddles, onMiss, onClear) {
-    const x = player.worldX;
-    for (const p of visiblePuddles) {
-      const src = p._src;
-      if (!src || src.resolved) continue;
-
-      const rangeMin = p.worldX - p.width / 2 - this.margin;
-      const rangeMax = p.worldX + p.width / 2 + this.margin;
-
-      if (x < rangeMin) continue;
-
-      if (x <= rangeMax) {
-        if (player.isJumping) { src.resolved = true; src.cleared = true; onClear?.(p); }
-      } else {
-        // Passed all the way through without ever having jumped over it.
-        src.resolved = true;
-        onMiss(p);
-      }
+    constructor() {
+        this.margin = 6; // small forgiveness so jump timing needn't be pixel-perfect
+        this.missPenalty = 5; // small, non-punishing dryness cost for a missed puddle
     }
-  }
+    update(player, visiblePuddles, onMiss, onClear) {
+        const x = player.worldX;
+        for (const p of visiblePuddles) {
+            const src = p._src;
+            if (!src || src.resolved)
+                continue;
+            const rangeMin = p.worldX - p.width / 2 - this.margin;
+            const rangeMax = p.worldX + p.width / 2 + this.margin;
+            if (x < rangeMin)
+                continue;
+            if (x <= rangeMax) {
+                if (player.isJumping) {
+                    src.resolved = true;
+                    src.cleared = true;
+                    onClear === null || onClear === void 0 ? void 0 : onClear(p);
+                }
+            }
+            else {
+                // Passed all the way through without ever having jumped over it.
+                src.resolved = true;
+                onMiss(p);
+            }
+        }
+    }
 };
+//# sourceMappingURL=puddles.js.map
